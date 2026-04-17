@@ -27,6 +27,11 @@
             android:exported="false"
             android:label="Write Journal"
             android:theme="@style/Theme.RedMaterna" />
+        <activity
+            android:name=".WriteSymptomActivity"
+            android:exported="false"
+            android:label="Write Symptom"
+            android:theme="@style/Theme.RedMaterna" />
     </application>
 
 </manifest>

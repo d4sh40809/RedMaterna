@@ -252,43 +252,57 @@ fun SupportScreen(modifier: Modifier = Modifier) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-@Preview
 fun JournalScreen(modifier: Modifier = Modifier, initialTabIndex: Int = 0) {
     val context = LocalContext.current
-    var entries by remember { mutableStateOf<List<JournalEntry>>(emptyList()) }
+    var journalEntries by remember { mutableStateOf<List<JournalEntry>>(emptyList()) }
+    var symptomEntries by remember { mutableStateOf<List<SymptomEntry>>(emptyList()) }
     val lifecycleOwner = LocalLifecycleOwner.current
     var selectedTabIndex by remember { mutableIntStateOf(initialTabIndex) }
     val options = listOf("Journal", "Symptoms")
 
-
+    // Update selected tab if initialTabIndex changes via navigation
     LaunchedEffect(initialTabIndex) {
         selectedTabIndex = initialTabIndex
     }
 
-    fun loadEntries() {
-        val files = context.filesDir.listFiles { file ->
-            file.name.startsWith("journal_") && file.name.endsWith(".json")
-        }
+    // Helper function to load both types of entries
+    fun loadData() {
+        val files = context.filesDir.listFiles() ?: emptyArray()
         val gson = Gson()
-        entries = files?.mapNotNull { file ->
-            try {
-                val text = file.readText()
-                if (text.isBlank()) return@mapNotNull null
-                gson.fromJson(text, JournalEntry::class.java)
-            } catch (e: Exception) {
-                null
-            }
-        }?.sortedByDescending { it.timestamp } ?: emptyList()
+        
+        journalEntries = files.filter { it.name.startsWith("journal_") && it.name.endsWith(".json") }
+            .mapNotNull { file ->
+                try {
+                    val text = file.readText()
+                    if (text.isBlank()) return@mapNotNull null
+                    gson.fromJson(text, JournalEntry::class.java)
+                } catch (e: Exception) {
+                    null
+                }
+            }.sortedByDescending { it.timestamp }
+
+        symptomEntries = files.filter { it.name.startsWith("symptom_") && it.name.endsWith(".json") }
+            .mapNotNull { file ->
+                try {
+                    val text = file.readText()
+                    if (text.isBlank()) return@mapNotNull null
+                    gson.fromJson(text, SymptomEntry::class.java)
+                } catch (e: Exception) {
+                    null
+                }
+            }.sortedByDescending { it.timestamp }
     }
 
+    // Initial load
     LaunchedEffect(Unit) {
-        loadEntries()
+        loadData()
     }
 
+    // Refresh when returning to the screen (On Resume)
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                loadEntries()
+                loadData()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -298,6 +312,7 @@ fun JournalScreen(modifier: Modifier = Modifier, initialTabIndex: Int = 0) {
     }
 
     Column(modifier = modifier.fillMaxSize()) {
+        // Toggle Switch at the top
         SingleChoiceSegmentedButtonRow(
             modifier = Modifier
                 .fillMaxWidth()
@@ -316,53 +331,129 @@ fun JournalScreen(modifier: Modifier = Modifier, initialTabIndex: Int = 0) {
 
         Box(modifier = Modifier.weight(1f)) {
             if (selectedTabIndex == 0) {
-                if (entries.isEmpty()) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No journal entries yet.")
-                    }
-                } else {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp)
-                    ) {
-                        entries.forEach { entry ->
-                            JournalEntryItem(entry)
-                            Spacer(modifier = Modifier.height(12.dp))
-                        }
-                        Spacer(modifier = Modifier.height(80.dp)) // Extra space for FAB
-                    }
-                }
-
-                FloatingActionButton(
-                    onClick = {
-                        val intent = Intent(context, WriteJournalActivity::class.java)
-                        context.startActivity(intent)
-                    },
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(24.dp),
-                    containerColor = Color(210, 150, 168),
-                    contentColor = Color.White
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Write Journal")
-                }
+                // Journal Tab
+                JournalContent(entries = journalEntries, onAddClick = {
+                    val intent = Intent(context, WriteJournalActivity::class.java)
+                    context.startActivity(intent)
+                })
             } else {
-                // Symptoms Content
-                SymptomsScreen()
+                // Symptoms Tab
+                SymptomsContent(entries = symptomEntries, onAddClick = {
+                    val intent = Intent(context, WriteSymptomActivity::class.java)
+                    context.startActivity(intent)
+                })
             }
         }
     }
 }
 
 @Composable
-fun SymptomsScreen() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+fun JournalContent(entries: List<JournalEntry>, onAddClick: () -> Unit) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (entries.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No journal entries yet.")
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp)
+            ) {
+                entries.forEach { entry ->
+                    JournalEntryItem(entry)
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+                Spacer(modifier = Modifier.height(80.dp))
+            }
+        }
+
+        FloatingActionButton(
+            onClick = onAddClick,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
+            containerColor = Color(210, 150, 168),
+            contentColor = Color.White
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Write Journal")
+        }
+    }
+}
+
+@Composable
+fun SymptomsContent(entries: List<SymptomEntry>, onAddClick: () -> Unit) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (entries.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No symptom entries yet.")
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp)
+            ) {
+                entries.forEach { entry ->
+                    SymptomEntryItem(entry)
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+                Spacer(modifier = Modifier.height(80.dp))
+            }
+        }
+
+        FloatingActionButton(
+            onClick = onAddClick,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
+            containerColor = Color(210, 150, 168),
+            contentColor = Color.White
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Write Symptom")
+        }
+    }
+}
+
+@Composable
+fun SymptomEntryItem(entry: SymptomEntry) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Color(224, 208, 211))
     ) {
-        Text(text = "Symptoms Page Content", fontSize = 20.sp)
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.FavoriteBorder, 
+                    contentDescription = null,
+                    tint = Color(210, 150, 168),
+                    modifier = Modifier.size(28.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = entry.type ?: "Physical",
+                        style = TextStyle(
+                            color = Color(210, 150, 168),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    )
+                    val dateStr = try {
+                        java.text.DateFormat.getDateTimeInstance().format(java.util.Date(entry.timestamp))
+                    } catch (e: Exception) {
+                        "Unknown date"
+                    }
+                    Text(
+                        text = dateStr,
+                        style = TextStyle(color = Color.Gray, fontSize = 10.sp)
+                    )
+                }
+            }
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp)
+            Text(text = entry.content ?: "", style = TextStyle(fontSize = 16.sp))
+        }
     }
 }
 
