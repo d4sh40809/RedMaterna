@@ -22,26 +22,24 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,7 +58,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.gson.Gson
-import java.io.File
+
 
 @Composable
 @Preview
@@ -88,7 +86,7 @@ fun HomeScreen(
 
             ) {
                 Row {
-                    Text(text = "test2", modifier = Modifier.padding(10.dp))
+                    Text(text = "", modifier = Modifier.padding(10.dp))
                     Column(modifier = Modifier.padding(10.dp)) {
                         Text(text = "You're doing amazing!", style= TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold))
                         Text(text = "Every day is a step forward in your beautiful journey. Take time to rest and care for yourself today.", style= TextStyle(color = Color(117, 102, 105)), modifier = Modifier.padding(top = 10.dp, bottom = 10.dp))
@@ -188,84 +186,91 @@ fun HomeScreen(
 }
 
 @Composable
-@Preview
-fun ForumScreen(
-    modifier: Modifier = Modifier,
-    viewModel: ForumViewModel = viewModel()
-) {
-    // Observe ViewModel state
-    val savedPost by viewModel.post.observeAsState()
-    val isSaving by viewModel.isSaving.observeAsState(false)
-    val errorMessage by viewModel.errorMessage.observeAsState()
+fun ForumScreen(modifier: Modifier = Modifier, viewModel: ForumViewModel = viewModel()) {
+    val context = LocalContext.current
+    val posts by viewModel.posts.collectAsState()
 
-    var inputName by remember { mutableStateOf("") }
-    var inputContent by remember { mutableStateOf("") }
-
-    LaunchedEffect(savedPost) {
-        savedPost?.let {
-            inputName = it.name
-            inputContent = it.content
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        viewModel.startListening()
-    }
-
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        errorMessage?.let {
-            Text(
-                text = it,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-        }
-
-        TextField(
-            value = inputName,
-            onValueChange = { inputName = it },
-            label = { Text("Name") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp)
-        )
-        TextField(
-            value = inputContent,
-            onValueChange = { inputContent = it },
-            label = { Text("Content") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp)
-        )
-        Button(
-            onClick = { viewModel.savePost(inputName, inputContent) },
-            enabled = !isSaving,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 24.dp)
-        ) {
-            if (isSaving) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(18.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
-            } else {
-                Text("Save Data")
+    Box(modifier = modifier.fillMaxSize()) {
+        if (posts.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No posts yet.")
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp)
+            ) {
+                posts.forEach { post ->
+                    ForumPostItem(post)
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+                Spacer(modifier = Modifier.height(80.dp))
             }
         }
 
-        if (savedPost != null) {
-            Text(text = "Saved Name: ${savedPost!!.name}", fontWeight = FontWeight.Bold)
-            Text(text = "Saved Content: ${savedPost!!.content}")
-        } else {
-            Text(text = "No post saved yet.", color = MaterialTheme.colorScheme.outline)
+        FloatingActionButton(
+            onClick = {
+                val intent = Intent(context, WriteForumPostActivity::class.java)
+                context.startActivity(intent)
+            },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(24.dp),
+            containerColor = Color(210, 150, 168),
+            contentColor = Color.White
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Create Post")
+        }
+    }
+}
+
+@Composable
+fun ForumPostItem(post: ForumPost) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Color(224, 208, 211))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = null,
+                    tint = Color(210, 150, 168),
+                    modifier = Modifier.size(28.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = post.name ?: "Anonymous",
+                        style = TextStyle(
+                            color = Color(210, 150, 168),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                    )
+                    val dateStr = try {
+                        java.text.DateFormat.getDateTimeInstance().format(java.util.Date(post.timestamp))
+                    } catch (e: Exception) {
+                        "Recently"
+                    }
+                    Text(
+                        text = dateStr,
+                        style = TextStyle(color = Color.Gray, fontSize = 10.sp)
+                    )
+                }
+            }
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp)
+            Text(
+                text = post.title ?: "",
+                style = TextStyle(fontWeight = FontWeight.Bold, fontSize = 18.sp),
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+            Text(text = post.content ?: "", style = TextStyle(fontSize = 16.sp))
         }
     }
 }

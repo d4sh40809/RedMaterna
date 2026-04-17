@@ -1,62 +1,46 @@
 package com.Dasha.redmaterna
 
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import com.google.firebase.Firebase
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
-import com.google.firebase.database.database
-import com.google.firebase.auth.auth
-
-
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 class ForumViewModel : ViewModel() {
+    private val database = FirebaseDatabase.getInstance().getReference("posts")
 
-    private val db = Firebase.database.reference
+    private val _posts = MutableStateFlow<List<ForumPost>>(emptyList())
+    val posts: StateFlow<List<ForumPost>> = _posts
 
-    // Fixed path instead of posts/{uid}
-    private val postRef = db.child("forum_posts").child("test_post")
+    init {
+        fetchPosts()
+    }
 
-    private val _post = MutableLiveData<ForumPost?>(null)
-    val post: LiveData<ForumPost?> = _post
-
-    private val _isSaving = MutableLiveData(false)
-    val isSaving: LiveData<Boolean> = _isSaving
-
-    private val _errorMessage = MutableLiveData<String?>(null)
-    val errorMessage: LiveData<String?> = _errorMessage
-
-    private var listener: ValueEventListener? = null
-
-    fun startListening() {
-        listener = object : ValueEventListener {
+    private fun fetchPosts() {
+        database.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                _post.value = snapshot.getValue(ForumPost::class.java)
+                val postList = mutableListOf<ForumPost>()
+                for (postSnapshot in snapshot.children) {
+                    val post = postSnapshot.getValue(ForumPost::class.java)
+                    post?.let { postList.add(it) }
+                }
+                // Reverse to show newest posts first
+                _posts.value = postList.reversed()
             }
+
             override fun onCancelled(error: DatabaseError) {
-                _errorMessage.value = "Failed to load post: ${error.message}"
+                // Handle error
             }
-        }
-        postRef.addValueEventListener(listener!!)
+        })
     }
 
-    fun savePost(name: String, content: String) {
-        _isSaving.value = true
+    fun addPost(name: String, title: String, content: String) {
+        if (name.isBlank() || title.isBlank() || content.isBlank()) return
 
-        postRef.setValue(ForumPost(name, content))
-            .addOnSuccessListener {
-                _isSaving.value = false
-            }
-            .addOnFailureListener { e ->
-                _isSaving.value = false
-                _errorMessage.value = "Failed to save: ${e.message}"
-            }
-    }
-
-    override fun onCleared() {
-        postRef.removeEventListener(listener!!)
-        super.onCleared()
+        val newPostRef = database.push()
+        val post = ForumPost(name = name, title = title, content = content)
+        newPostRef.setValue(post)
     }
 }

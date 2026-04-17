@@ -48,6 +48,7 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+@Preview
 fun RedMaternaApp() {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -128,6 +129,7 @@ fun RedMaternaApp() {
                         }
                     )
                 }
+
                 composable(AppDestinations.FORUM.name) { ForumScreen() }
                 composable(AppDestinations.SUPPORT.name) { SupportScreen() }
                 

@@ -32,6 +32,11 @@
             android:exported="false"
             android:label="Write Symptom"
             android:theme="@style/Theme.RedMaterna" />
+        <activity
+            android:name=".WriteForumPostActivity"
+            android:exported="false"
+            android:label="Write Forum Post"
+            android:theme="@style/Theme.RedMaterna" />
     </application>
 
 </manifest>
