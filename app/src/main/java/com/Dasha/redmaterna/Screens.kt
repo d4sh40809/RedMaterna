@@ -26,10 +26,12 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -39,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.gson.Gson
 import java.io.File
 
@@ -185,21 +189,27 @@ fun HomeScreen(
 
 @Composable
 @Preview
-fun ForumScreen(modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    val file = File(context.filesDir, "forum_data.json")
-    val gson = Gson()
+fun ForumScreen(
+    modifier: Modifier = Modifier,
+    viewModel: ForumViewModel = viewModel()
+) {
+    // Observe ViewModel state
+    val savedPost by viewModel.post.observeAsState()
+    val isSaving by viewModel.isSaving.observeAsState(false)
+    val errorMessage by viewModel.errorMessage.observeAsState()
 
     var inputName by remember { mutableStateOf("") }
     var inputContent by remember { mutableStateOf("") }
-    
-    var savedPost by remember { 
-        mutableStateOf(
-            if (file.exists()) {
-                try { gson.fromJson(file.readText(), ForumPost::class.java) ?: ForumPost("", "") } 
-                catch (e: Exception) { ForumPost("", "") }
-            } else ForumPost("", "")
-        )
+
+    LaunchedEffect(savedPost) {
+        savedPost?.let {
+            inputName = it.name
+            inputContent = it.content
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.startListening()
     }
 
     Column(
@@ -209,31 +219,54 @@ fun ForumScreen(modifier: Modifier = Modifier) {
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        errorMessage?.let {
+            Text(
+                text = it,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+        }
+
         TextField(
             value = inputName,
             onValueChange = { inputName = it },
             label = { Text("Name") },
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp)
         )
         TextField(
             value = inputContent,
             onValueChange = { inputContent = it },
             label = { Text("Content") },
-            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp)
         )
         Button(
-            onClick = {
-                val post = ForumPost(inputName, inputContent)
-                file.writeText(gson.toJson(post))
-                savedPost = post
-            },
-            modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
+            onClick = { viewModel.savePost(inputName, inputContent) },
+            enabled = !isSaving,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 24.dp)
         ) {
-            Text("Save Data")
+            if (isSaving) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+            } else {
+                Text("Save Data")
+            }
         }
 
-        Text(text = "Saved Name: ${savedPost.name}", fontWeight = FontWeight.Bold)
-        Text(text = "Saved Content: ${savedPost.content}")
+        if (savedPost != null) {
+            Text(text = "Saved Name: ${savedPost!!.name}", fontWeight = FontWeight.Bold)
+            Text(text = "Saved Content: ${savedPost!!.content}")
+        } else {
+            Text(text = "No post saved yet.", color = MaterialTheme.colorScheme.outline)
+        }
     }
 }
 

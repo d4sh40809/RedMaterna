@@ -1,6 +1,8 @@
 package com.Dasha.redmaterna
 
 data class ForumPost(
-    val name: String,
-    val content: String
+    //val id: String = "",
+    val content: String = "",
+    val name: String = "",
+    //val timestamp: Long = 0L
 )
