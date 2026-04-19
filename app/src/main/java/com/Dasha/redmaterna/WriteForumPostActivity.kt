@@ -19,6 +19,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,10 +53,11 @@ class WriteForumPostActivity : ComponentActivity() {
 @Composable
 fun WriteForumPostScreen(
     modifier: Modifier = Modifier,
-    viewModel: ForumViewModel = viewModel(),
+    forumViewModel: ForumViewModel = viewModel(),
+    userViewModel: UserViewModel = viewModel(),
     onPostSuccess: () -> Unit
 ) {
-    var inputName by remember { mutableStateOf("") }
+    val userProfile by userViewModel.userProfile.collectAsState()
     var inputTitle by remember { mutableStateOf("") }
     var inputContent by remember { mutableStateOf("") }
     var isAnonymous by remember { mutableStateOf(false) }
@@ -83,18 +85,15 @@ fun WriteForumPostScreen(
             Text(text = "Post anonymously", modifier = Modifier.weight(1f))
             Switch(
                 checked = isAnonymous,
-                onCheckedChange = { 
-                    isAnonymous = it
-                    if (it) inputName = "Anonymous" else inputName = ""
-                }
+                onCheckedChange = { isAnonymous = it }
             )
         }
 
         TextField(
-            value = if (isAnonymous) "Anonymous" else inputName,
-            onValueChange = { if (!isAnonymous) inputName = it },
+            value = if (isAnonymous) "Anonymous" else userProfile?.username ?: "",
+            onValueChange = { },
             label = { Text("Username") },
-            enabled = !isAnonymous,
+            enabled = false,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 8.dp)
@@ -121,9 +120,9 @@ fun WriteForumPostScreen(
 
         Button(
             onClick = {
-                val finalName = if (isAnonymous) "Anonymous" else inputName
-                if (finalName.isNotEmpty() && inputTitle.isNotEmpty() && inputContent.isNotEmpty()) {
-                    viewModel.addPost(finalName, inputTitle, inputContent)
+                val finalName = if (isAnonymous) "Anonymous" else userProfile?.username ?: "User"
+                if (inputTitle.isNotEmpty() && inputContent.isNotEmpty()) {
+                    forumViewModel.addPost(finalName, inputTitle, inputContent)
                     onPostSuccess()
                 }
             },

@@ -16,13 +16,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -33,6 +34,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.Dasha.redmaterna.ui.theme.RedMaternaTheme
+import com.Dasha.redmaterna.ui.theme.SelectionColor
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,17 +50,32 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-@Preview
 fun RedMaternaApp() {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
     val context = LocalContext.current
 
+    val navItemColors = NavigationSuiteDefaults.itemColors(
+        navigationBarItemColors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+            selectedIconColor = MaterialTheme.colorScheme.primary,
+            selectedTextColor = MaterialTheme.colorScheme.primary,
+            indicatorColor = SelectionColor
+        ),
+        navigationRailItemColors = androidx.compose.material3.NavigationRailItemDefaults.colors(
+            selectedIconColor = MaterialTheme.colorScheme.primary,
+            indicatorColor = SelectionColor
+        ),
+        navigationDrawerItemColors = androidx.compose.material3.NavigationDrawerItemDefaults.colors(
+            selectedContainerColor = SelectionColor
+        )
+    )
+
     NavigationSuiteScaffold(
+        containerColor = Color.White,
+        contentColor = MaterialTheme.colorScheme.onBackground,
         navigationSuiteItems = {
             AppDestinations.entries.forEach { destination ->
-                // Always navigate to the base route (Journal defaults to tab 0)
                 val route = if (destination == AppDestinations.Journal) {
                     "${destination.name}/0"
                 } else {
@@ -84,12 +101,12 @@ fun RedMaternaApp() {
                             launchSingleTop = true
                             restoreState = true
                         }
-                    }
+                    },
+                    colors = navItemColors
                 )
             }
         }
     ) {
-        // Correctly identify the base route for the TopBar title
         val currentRoutePattern = currentDestination?.route ?: ""
         val baseRoute = currentRoutePattern.split("/").firstOrNull() ?: ""
         val currentAppDestination = AppDestinations.entries.find { it.name == baseRoute }
@@ -99,14 +116,18 @@ fun RedMaternaApp() {
                 Column {
                     CenterAlignedTopAppBar(
                         title = { Text(currentAppDestination?.label ?: "") },
-                        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(),
+                        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.background,
+                            titleContentColor = MaterialTheme.colorScheme.onBackground
+                        ),
                     )
                     HorizontalDivider(
                         thickness = 1.dp,
                         color = MaterialTheme.colorScheme.outlineVariant
                     )
                 }
-            }
+            },
+            containerColor = MaterialTheme.colorScheme.background
         ) { innerPadding ->
             NavHost(
                 navController = navController,
@@ -122,18 +143,40 @@ fun RedMaternaApp() {
                             context.startActivity(intent)
                         },
                         onJournalClick = {
-                            navController.navigate("${AppDestinations.Journal.name}/0")
+                            navController.navigate("${AppDestinations.Journal.name}/0") {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         },
                         onSymptomsClick = {
-                            navController.navigate("${AppDestinations.Journal.name}/1")
+                            navController.navigate("${AppDestinations.Journal.name}/1") {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         }
                     )
                 }
-
                 composable(AppDestinations.FORUM.name) { ForumScreen() }
-                composable(AppDestinations.SUPPORT.name) { SupportScreen() }
+                composable(AppDestinations.SUPPORT.name) { 
+                    SupportScreen(
+                        onForumClick = {
+                            navController.navigate(AppDestinations.FORUM.name) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    ) 
+                }
                 
-                // Unified Journal route with mandatory tabIndex parameter
                 composable(
                     route = "${AppDestinations.Journal.name}/{tabIndex}",
                     arguments = listOf(navArgument("tabIndex") { type = NavType.IntType })

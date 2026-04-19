@@ -1,4 +1,9 @@
 package com.Dasha.redmaterna
 
-class UserProfile {
-}
+data class UserProfile(
+    val username: String = "",
+    val age: String = "",
+    val email: String = "",
+    val uid: String = "",
+    val weeks: String = ""
+)
